@@ -1,4 +1,4 @@
-const UPSTREAM = "https://wme-gep-graphql-prod.wme-digital.com/graphql";
+const UPSTREAM = "https://wme-gep-graphql-qa.wme-digital.com/graphql"; // Using QA for fresh data
 
 module.exports = async (req, res) => {
   try {

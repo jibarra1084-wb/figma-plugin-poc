@@ -77,7 +77,7 @@ function flatten(obj: any, prefix = "", out: Record<string, any> = {}): Record<s
  *  http://localhost:3000/api/graphql
  */
 // const DEFAULT_PROXY_URL = "http://localhost:3000/api/graphql"; // Testing locally
-const DEFAULT_PROXY_URL = "https://figma-plugin-poc.vercel.app/api/graphql"; // Stable production URL
+const DEFAULT_PROXY_URL = "https://figma-plugin-poc.vercel.app/api/graphql"; // Using QA for fresh data
 
 // Optional: allow ?proxy=http://localhost:3000/api/graphql for quick switching
 const PROXY_URL =
@@ -181,7 +181,8 @@ async function runQuery(brand: string, size: number, scrollId?: string) {
   const variables: any = { 
     brand, 
     size, 
-    allowUnpublishedContent: false 
+    allowUnpublishedContent: false,
+    _cacheBust: Date.now() // Force fresh data by adding timestamp
   };
   if (scrollId) {
     variables.scrollId = scrollId;
