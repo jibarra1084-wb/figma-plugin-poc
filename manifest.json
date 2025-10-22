@@ -1,0 +1,27 @@
+{
+  "name": "Gridddly",
+  "id": "your-plugin-id",
+  "api": "1.0.0",
+  "main": "dist/main.es5.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma", "figjam"],
+  "relaunchButtons": [
+    {
+      "command": "open",
+      "name": "Open Gridddly"
+    }
+  ],
+  "permissions": [],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://wme-gep-graphql-qa.wme-digital.com",
+      "https://wme-gep-graphql-prod.wme-digital.com",
+      "https://*.vercel.app",
+      "https://static.dc.com",
+      "https://static.tcm.com",
+      "https://static.hbo.com",
+      "https://*.warnerbros.com",
+      "https://*.warnermediacdn.com"
+    ]
+  }
+}

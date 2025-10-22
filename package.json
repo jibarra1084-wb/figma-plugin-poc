@@ -1,0 +1,21 @@
+{
+  "scripts": {
+    "clean": "rm -rf dist",
+    "dev": "vite",
+    "build": "npm run clean && node build-main.js",
+    "build:ui": "node build-main.js",
+    "build:main": "node build-main.js",
+    "vercel": "vercel dev"
+  },
+    "dependencies": {
+        "react": "^18",
+        "react-dom": "^18"
+    },
+    "devDependencies": {
+        "@figma/plugin-typings": "^1.90.0",
+        "@vercel/node": "^5.4.0",
+        "@vitejs/plugin-react": "^4",
+        "esbuild": "^0.21",
+        "vite": "^5"
+    }
+}
