@@ -125,10 +125,14 @@ query FeatureGrid($brand: String!, $size: Int = 24, $scrollId: String) {
 }
 `;
 
+// Query for related videos by content titleId
+// NOTE: QA environment has video data indexed (type:video works)
+// BUT references.gepContentBase is empty in QA (not populated)
+// This query will work in PROD or when QA references are populated
 const GQL_REFERENCED_VIDEOS = `
 query getReferencedVideosByContentId($featureId: String!, $brand: String!) {
   search(
-    queryString: "type:video AND brand:{{$brand}} AND references.handle.gepContentId:\\"{{$featureId}}\\""
+    queryString: "type:video AND brand:{{$brand}} AND references.gepContentBase.id:\\"{{$featureId}}\\""
     count: 20
     sort: { field: "lifecycle.date.firstPublishedDate", order: desc }
     allowUnpublishedContent: false
