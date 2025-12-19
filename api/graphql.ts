@@ -1,4 +1,4 @@
-const UPSTREAM = "https://wme-gep-graphql.wme-digital.com/graphql"; // Testing PROD with cache-busting
+const UPSTREAM = "https://wme-gep-graphql-qa.wme-digital.com/graphql"; // QA endpoint (PROD requires auth)
 
 module.exports = async (req, res) => {
   try {

@@ -93,7 +93,7 @@ function flatten(obj: any, prefix = "", out: Record<string, any> = {}): Record<s
  *  http://localhost:3000/api/graphql
  */
 // const DEFAULT_PROXY_URL = "http://localhost:3000/api/graphql"; // Testing locally
-const DEFAULT_PROXY_URL = "https://figma-plugin-poc.vercel.app/api/graphql"; // Testing PROD with cache-busting
+const DEFAULT_PROXY_URL = "https://figma-plugin-poc.vercel.app/api/graphql"; // QA endpoint (PROD requires auth)
 
 // Optional: allow ?proxy=http://localhost:3000/api/graphql for quick switching
 const PROXY_URL =
