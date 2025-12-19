@@ -1,4 +1,4 @@
-const UPSTREAM = "https://wme-gep-graphql-qa.wme-digital.com/graphql"; // Using QA for fresh data
+const UPSTREAM = "https://wme-gep-graphql.wme-digital.com/graphql"; // Testing PROD with cache-busting
 
 module.exports = async (req, res) => {
   try {
@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
-    
+
     // Handle preflight
     if (req.method === "OPTIONS") {
       res.status(200).end();

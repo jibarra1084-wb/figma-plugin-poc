@@ -2,7 +2,7 @@
   "name": "Gridddly",
   "id": "your-plugin-id",
   "api": "1.0.0",
-  "main": "dist/main.es5.js",
+  "main": "dist/main.es5.js",    
   "ui": "dist/ui.html",
   "editorType": ["figma", "figjam"],
   "relaunchButtons": [
@@ -21,7 +21,8 @@
       "https://static.tcm.com",
       "https://static.hbo.com",
       "https://*.warnerbros.com",
-      "https://*.warnermediacdn.com"
+      "https://*.warnermediacdn.com",
+      "https://images.cdn.prd.api.discomax.com"
     ]
   }
 }

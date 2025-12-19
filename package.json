@@ -1,12 +1,12 @@
 {
-  "scripts": {
+    "scripts": {
     "clean": "rm -rf dist",
-    "dev": "vite",
+        "dev": "vite",
     "build": "npm run clean && node build-main.js",
     "build:ui": "node build-main.js",
-    "build:main": "node build-main.js",
-    "vercel": "vercel dev"
-  },
+        "build:main": "node build-main.js",
+        "vercel": "vercel dev"
+    },
     "dependencies": {
         "react": "^18",
         "react-dom": "^18"

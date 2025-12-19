@@ -5,6 +5,12 @@ console.log('Gridddly build timestamp:', Date.now());
 // Load UI (will be replaced with actual HTML by build script)
 figma.showUI(__html__, { width: 420, height: 650 });
 
+// Listen for selection changes and notify UI
+figma.on('selectionchange', () => {
+  const layers = introspectSelection();
+  figma.ui.postMessage({ type: "SELECTION_INTROSPECTED", layers });
+});
+
 // ==================== TYPES ====================
 
 type Mapping = {
@@ -31,7 +37,8 @@ type FieldTransform = {
 };
 
 type FieldToLayer = {
-  layerId: string;
+  layerId: string;      // For reference/validation
+  layerName: string;    // Used for mapping across multiple frames
   kind: "text" | "image";
   field: string;  // e.g. "title", "imageUrl", "genres"
   transform?: FieldTransform;
@@ -89,10 +96,10 @@ async function setImageFill(shape: GeometryMixin | undefined | null, url?: strin
     const res = await fetch(proxyUrl);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     
-    const bytes = await res.arrayBuffer();
-    const img = figma.createImage(new Uint8Array(bytes));
-    const fills: ImagePaint[] = [{ type: "IMAGE", imageHash: img.hash, scaleMode: "FILL" }];
-    (shape as GeometryMixin).fills = fills;
+  const bytes = await res.arrayBuffer();
+  const img = figma.createImage(new Uint8Array(bytes));
+  const fills: ImagePaint[] = [{ type: "IMAGE", imageHash: img.hash, scaleMode: "FILL" }];
+  (shape as GeometryMixin).fills = fills;
   } catch (error) {
     // Gracefully fail - use placeholder color instead
     console.warn(`Failed to load image from ${url}, using placeholder:`, error);
@@ -129,6 +136,23 @@ async function loadMapping(brand: string): Promise<Mapping | null> {
   const key = `gridddly:mappings:${brand}`;
   const mapping = await figma.clientStorage.getAsync(key);
   return mapping || null;
+}
+
+// New: Save/Load/Delete mapping rows (for new Map tab UI)
+async function saveMappingRows(brand: string, rows: any[]): Promise<void> {
+  const key = `gridddly:mapping-rows:${brand}`;
+  await figma.clientStorage.setAsync(key, { rows });
+}
+
+async function loadMappingRows(brand: string): Promise<any[] | null> {
+  const key = `gridddly:mapping-rows:${brand}`;
+  const data = await figma.clientStorage.getAsync(key);
+  return data?.rows || null;
+}
+
+async function deleteMappingRows(brand: string): Promise<void> {
+  const key = `gridddly:mapping-rows:${brand}`;
+  await figma.clientStorage.deleteAsync(key);
 }
 
 // ==================== CARD TRAVERSAL & MAPPING ====================
@@ -298,7 +322,13 @@ function applyTransform(value: any, transform?: FieldTransform): string {
   return result;
 }
 
-async function applyMappingById(pairs: FieldToLayer[], items: any[], offset: number, count: number): Promise<{ success: number; failed: number }> {
+async function applyMappingById(
+  pairs: FieldToLayer[], 
+  items: any[], 
+  offset: number, 
+  count: number,
+  mapMode: "multi-frame" | "single-frame"
+): Promise<{ success: number; failed: number }> {
   const startIdx = Math.max(0, offset);
   const endIdx = count ? Math.min(items.length, startIdx + count) : items.length;
   const itemsToUse = items.slice(startIdx, endIdx);
@@ -306,27 +336,74 @@ async function applyMappingById(pairs: FieldToLayer[], items: any[], offset: num
   let successCount = 0;
   let failCount = 0;
   
-  for (let i = 0; i < itemsToUse.length; i++) {
+  // Get target frames based on mode
+  const selection = figma.currentPage.selection;
+  let targetFrames: SceneNode[] = [];
+  
+  if (mapMode === "multi-frame") {
+    // Multi-frame: each selected frame/node gets one item
+    if (selection.length > 1) {
+      targetFrames = selection.slice();
+    } else if (selection.length === 1) {
+      const node = selection[0];
+      // If single container selected, treat its children as target frames
+      if (node.type === "FRAME" || node.type === "GROUP" || node.type === "COMPONENT") {
+        targetFrames = Array.from((node as FrameNode).children || []);
+      } else {
+        targetFrames = [node];
+      }
+    }
+  } else {
+    // Single-frame: selected frame's children each get one item
+    if (selection.length === 1) {
+      const node = selection[0];
+      if (node.type === "FRAME" || node.type === "GROUP" || node.type === "COMPONENT") {
+        targetFrames = Array.from((node as FrameNode).children || []);
+      }
+    }
+  }
+  
+  if (targetFrames.length === 0) {
+    console.warn("No target frames found for mapping");
+    return { success: 0, failed: 0 };
+  }
+  
+  // Apply items to frames
+  const numPairs = Math.min(targetFrames.length, itemsToUse.length);
+  
+  for (let i = 0; i < numPairs; i++) {
+    const frame = targetFrames[i];
     const item = itemsToUse[i];
+    
+    console.log(`Applying item ${i} to frame "${frame.name}"`);
     
     for (const pair of pairs) {
       try {
-        const node = figma.getNodeById(pair.layerId);
+        // Find layer by NAME within this frame, or use the frame itself if names match
+        let targetNode: SceneNode | null = null;
         
-        if (!node) {
-          console.warn(`Node ${pair.layerId} not found, skipping`);
+        // First check if the frame itself is the target layer
+        if (frame.name === pair.layerName) {
+          targetNode = frame;
+        } else {
+          // Otherwise look for child with matching name
+          targetNode = findByName(frame, pair.layerName);
+        }
+        
+        if (!targetNode) {
+          console.warn(`Layer "${pair.layerName}" not found in frame "${frame.name}", skipping`);
           continue;
         }
         
-        if ("locked" in node && node.locked) {
-          console.warn(`Node ${pair.layerId} (${node.name}) is locked, skipping`);
+        if ("locked" in targetNode && targetNode.locked) {
+          console.warn(`Layer "${pair.layerName}" in frame "${frame.name}" is locked, skipping`);
           continue;
         }
         
         const fieldValue = item[pair.field];
         
-        if (pair.kind === "text" && node.type === "TEXT") {
-          const textNode = node as TextNode;
+        if (pair.kind === "text" && targetNode.type === "TEXT") {
+          const textNode = targetNode as TextNode;
           const transformedValue = applyTransform(fieldValue, pair.transform);
           
           // Load font
@@ -342,15 +419,15 @@ async function applyMappingById(pairs: FieldToLayer[], items: any[], offset: num
           
           textNode.characters = transformedValue;
           successCount++;
-        } else if (pair.kind === "image" && "fills" in node) {
+        } else if (pair.kind === "image" && "fills" in targetNode) {
           const url = applyTransform(fieldValue, pair.transform);
           if (url) {
-            await setImageFill(node as any, url, item.brand);
+            await setImageFill(targetNode as any, url, item.brand);
             successCount++;
           }
         }
       } catch (error) {
-        console.error(`Failed to apply ${pair.field} to ${pair.layerId}:`, error);
+        console.error(`Failed to apply ${pair.field} to "${pair.layerName}" in frame "${frame.name}":`, error);
         failCount++;
       }
     }
@@ -489,6 +566,63 @@ figma.ui.onmessage = async (msg) => {
     figma.ui.postMessage({ type: "MULTI_POPULATE_COMPLETE", successCount, failCount });
   }
 
+  // ===== SAVE MAPPING ROWS =====
+  if (msg.type === "SAVE_MAPPING_ROWS") {
+    const { brand, rows } = msg;
+    if (!brand || !rows) {
+      figma.notify("⚠️ Missing brand or mapping rows.");
+      return;
+    }
+    
+    try {
+      await saveMappingRows(brand, rows);
+      figma.notify(`✅ Mapping saved for ${brand.toUpperCase()}`);
+      figma.ui.postMessage({ type: "MAPPING_SAVED", brand });
+    } catch (err) {
+      figma.notify("⚠️ Failed to save mapping.");
+      console.error("Save mapping rows error:", err);
+    }
+  }
+
+  // ===== LOAD MAPPING ROWS =====
+  if (msg.type === "LOAD_MAPPING_ROWS") {
+    const { brand } = msg;
+    if (!brand) {
+      figma.notify("⚠️ Missing brand.");
+      return;
+    }
+    
+    try {
+      const rows = await loadMappingRows(brand);
+      figma.ui.postMessage({ 
+        type: "MAPPING_LOADED", 
+        brand, 
+        mapping: { rows: rows || [] } 
+      });
+    } catch (err) {
+      figma.notify("⚠️ Failed to load mapping.");
+      console.error("Load mapping rows error:", err);
+    }
+  }
+
+  // ===== DELETE MAPPING ROWS =====
+  if (msg.type === "DELETE_MAPPING_ROWS") {
+    const { brand } = msg;
+    if (!brand) {
+      figma.notify("⚠️ Missing brand.");
+      return;
+    }
+    
+    try {
+      await deleteMappingRows(brand);
+      figma.notify(`🗑️ Mapping cleared for ${brand.toUpperCase()}`);
+      figma.ui.postMessage({ type: "MAPPING_DELETED", brand });
+    } catch (err) {
+      figma.notify("⚠️ Failed to delete mapping.");
+      console.error("Delete mapping rows error:", err);
+    }
+  }
+
   // ===== INTROSPECT SELECTION =====
   if (msg.type === "INTROSPECT_SELECTION") {
     const layers = introspectSelection();
@@ -497,7 +631,7 @@ figma.ui.onmessage = async (msg) => {
 
   // ===== APPLY MAPPING BY ID =====
   if (msg.type === "APPLY_MAPPING") {
-    const { brand, pairs, items, offset = 0, count = 0 } = msg;
+    const { brand, pairs, items, offset = 0, count = 0, mapMode = "multi-frame" } = msg;
     
     if (!pairs || pairs.length === 0) {
       figma.notify("⚠️ No field mappings defined.");
@@ -508,15 +642,20 @@ figma.ui.onmessage = async (msg) => {
       figma.notify("⚠️ No items to populate.");
       return;
     }
+    
+    if (figma.currentPage.selection.length === 0) {
+      figma.notify("⚠️ Please select frames in Figma first.");
+      return;
+    }
 
-    figma.notify(`⏳ Applying mappings...`);
+    figma.notify(`⏳ Applying mappings in ${mapMode} mode...`);
 
-    const result = await applyMappingById(pairs, items, offset, count);
+    const result = await applyMappingById(pairs, items, offset, count, mapMode);
 
     if (result.failed === 0) {
-      figma.notify(`✅ Applied ${result.success} mappings!`);
+      figma.notify(`✅ Applied ${result.success} field updates!`);
     } else {
-      figma.notify(`⚠️ Applied ${result.success} mappings, ${result.failed} failed.`);
+      figma.notify(`⚠️ Applied ${result.success} updates, ${result.failed} failed.`);
     }
     
     figma.ui.postMessage({ 

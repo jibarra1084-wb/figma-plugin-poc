@@ -1,7 +1,5 @@
 # Figma Plugin POC
 
-Browse and map content from Warner Bros. Discovery brands into Figma.
-
 A Figma plugin built with TypeScript, Vite, and React.
 
 ## Project Structure

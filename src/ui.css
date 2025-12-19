@@ -219,6 +219,9 @@ body {
 }
 
 .header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 8px;
