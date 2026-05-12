@@ -62,7 +62,11 @@ function normalizeBody(req: VercelRequest): Record<string, unknown> | null {
   return body as Record<string, unknown>;
 }
 
-function parseUpstreamJson(raw: string): { ok: true; value: unknown } | { ok: false; snippet: string } {
+type SafeJsonParseResult =
+  | { ok: true; value: unknown }
+  | { ok: false; snippet: string };
+
+function safeJsonParse(raw: string): SafeJsonParseResult {
   const text = typeof raw === "string" ? raw : "";
   if (!text.trim()) return { ok: true, value: {} };
   try {
@@ -149,9 +153,10 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     }
 
     const raw = await fetchRes.text();
-    const parsed = parseUpstreamJson(raw);
+    const parsed = safeJsonParse(raw);
 
-    if (!parsed.ok) {
+    if (parsed.ok === false) {
+      const snippet = parsed.snippet;
       const startsHtml = raw.trimStart().startsWith("<");
       const hint = startsHtml
         ? "Upstream returned HTML (gateway/WAF/maintenance), not GraphQL JSON."
@@ -160,7 +165,7 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
       const statusOut = fetchRes.status >= 400 ? fetchRes.status : 502;
       sendJson(res, statusOut, {
         error: "UpstreamNonJson",
-        message: `${hint} HTTP ${fetchRes.status}${ct ? ` content-type=${ct}` : ""}.${parsed.snippet ? ` Preview: ${parsed.snippet}${raw.length > 200 ? "…" : ""}` : ""}`,
+        message: `${hint} HTTP ${fetchRes.status}${ct ? ` content-type=${ct}` : ""}.${snippet ? ` Preview: ${snippet}${raw.length > 200 ? "…" : ""}` : ""}`,
         proxyRevision: HANDLER_REVISION,
       });
       return;
