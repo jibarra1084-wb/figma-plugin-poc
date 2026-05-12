@@ -1,6 +1,9 @@
 /// <reference types="@figma/plugin-typings" />
 
-console.log('Gridddly build timestamp:', Date.now());
+/** Stable namespace for clientStorage keys — not the product title, so rebrands don't require key migrations. Bump version if stored payload shape changes. */
+const CLIENT_STORAGE_NS = "feature-map:v1";
+
+console.log("Currently build timestamp:", Date.now());
 
 // Load UI (will be replaced with actual HTML by build script)
 figma.showUI(__html__, { width: 420, height: 650 });
@@ -128,30 +131,30 @@ function findByName(node: SceneNode, name: string): SceneNode | null {
 // ==================== MAPPING STORAGE ====================
 
 async function saveMapping(brand: string, mapping: Mapping): Promise<void> {
-  const key = `gridddly:mappings:${brand}`;
+  const key = `${CLIENT_STORAGE_NS}:mappings:${brand}`;
   await figma.clientStorage.setAsync(key, mapping);
 }
 
 async function loadMapping(brand: string): Promise<Mapping | null> {
-  const key = `gridddly:mappings:${brand}`;
+  const key = `${CLIENT_STORAGE_NS}:mappings:${brand}`;
   const mapping = await figma.clientStorage.getAsync(key);
   return mapping || null;
 }
 
 // New: Save/Load/Delete mapping rows (for new Map tab UI)
 async function saveMappingRows(brand: string, rows: any[]): Promise<void> {
-  const key = `gridddly:mapping-rows:${brand}`;
+  const key = `${CLIENT_STORAGE_NS}:mapping-rows:${brand}`;
   await figma.clientStorage.setAsync(key, { rows });
 }
 
 async function loadMappingRows(brand: string): Promise<any[] | null> {
-  const key = `gridddly:mapping-rows:${brand}`;
+  const key = `${CLIENT_STORAGE_NS}:mapping-rows:${brand}`;
   const data = await figma.clientStorage.getAsync(key);
   return data?.rows || null;
 }
 
 async function deleteMappingRows(brand: string): Promise<void> {
-  const key = `gridddly:mapping-rows:${brand}`;
+  const key = `${CLIENT_STORAGE_NS}:mapping-rows:${brand}`;
   await figma.clientStorage.deleteAsync(key);
 }
 
@@ -346,9 +349,27 @@ async function applyMappingById(
       targetFrames = selection.slice();
     } else if (selection.length === 1) {
       const node = selection[0];
-      // If single container selected, treat its children as target frames
+      // If single container selected, treat its children as target frames ONLY if children are frames/groups
       if (node.type === "FRAME" || node.type === "GROUP" || node.type === "COMPONENT") {
-        targetFrames = Array.from((node as FrameNode).children || []);
+        const children = Array.from((node as FrameNode).children || []);
+        
+        // Check if children are cards (frames/groups) or layers (text/rectangles/etc)
+        const frameChildren = children.filter(c => 
+          c.type === "FRAME" || c.type === "GROUP" || c.type === "COMPONENT" || c.type === "INSTANCE"
+        );
+        
+        // Only expand if most children are frames (indicating a container of cards)
+        if (frameChildren.length > 0 && frameChildren.length / children.length > 0.5) {
+          // Sort by position (top-to-bottom, left-to-right) for consistent ordering
+          targetFrames = children.sort((a, b) => {
+            const yDiff = a.y - b.y;
+            if (Math.abs(yDiff) > 10) return yDiff; // Different rows
+            return a.x - b.x; // Same row, sort by x
+          });
+        } else {
+          // Children are layers, not cards - treat parent as single target
+          targetFrames = [node];
+        }
       } else {
         targetFrames = [node];
       }
@@ -358,7 +379,13 @@ async function applyMappingById(
     if (selection.length === 1) {
       const node = selection[0];
       if (node.type === "FRAME" || node.type === "GROUP" || node.type === "COMPONENT") {
-        targetFrames = Array.from((node as FrameNode).children || []);
+        const children = Array.from((node as FrameNode).children || []);
+        // Sort by position (top-to-bottom, left-to-right) for consistent ordering
+        targetFrames = children.sort((a, b) => {
+          const yDiff = a.y - b.y;
+          if (Math.abs(yDiff) > 10) return yDiff; // Different rows
+          return a.x - b.x; // Same row, sort by x
+        });
       }
     }
   }

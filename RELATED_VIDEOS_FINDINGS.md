@@ -23,13 +23,15 @@ The "View Related Videos" feature has been **fully implemented and is ready to w
    - Map tab: Dataset selector (Content items / Related videos) ✅
    - Mapping logic: Works with any data source ✅
 4. **Correct identifier usage**
-   - Using `titleId` (e.g., `91095`) instead of URN `id` ✅
+   - **Updated per dev recommendation:** Using main URN `id` (longer format) instead of `titleId` ✅
+   - Note: `titleId` still displayed in UI for reference, but search uses full `id`
 
 ### ⚠️ **Data Limitation (QA Environment)**
 
 **Problem:**
-- Query: `type:video AND brand:TCM AND references.gepContentBase.id:"91095"`
+- Query: `type:video AND brand:TCM AND references.gepContentBase.id:"<CONTENT_ID>"`
 - Result: `[]` (empty array)
+- Note: Now using full URN `id` instead of `titleId` per developer recommendation
 
 **Root Cause:**
 - `references.gepContentBase` exists on Video schema
@@ -86,7 +88,7 @@ query getReferencedVideosByContentId($featureId: String!, $brand: String!) {
 ### **Data Flow**
 
 ```
-1. User clicks "View related" on content item (titleId: 91095)
+1. User clicks "View related" on content item (using full content id)
 2. Plugin queries: type:video AND brand:TCM AND references.gepContentBase.id:"91095"
 3. QA returns: { "search": [] } (empty - references not populated)
 4. UI displays: "No related videos found"
@@ -98,7 +100,7 @@ query getReferencedVideosByContentId($featureId: String!, $brand: String!) {
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| UI - Browse compact cards | ✅ Complete | Shows titleId, image, title, year, genres |
+| UI - Browse compact cards | ✅ Complete | Shows id & titleId (reference), image, title, year, genres |
 | UI - "View related" button | ✅ Complete | Fetches and toggles display |
 | UI - Related videos list | ✅ Complete | Renders thumbnails, duration, type, date |
 | UI - Map dataset selector | ✅ Complete | Toggle between content/related videos |
@@ -145,7 +147,7 @@ query getReferencedVideosByContentId($featureId: String!, $brand: String!) {
 
 4. **Is the field path `references.gepContentBase.id` correct for PROD?**
    - Confirm this works in PROD environment
-   - Verify titleId format is correct
+   - Plugin now uses full content `id` (not `titleId`) per developer recommendation
 
 ---
 
