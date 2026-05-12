@@ -6,15 +6,6 @@ const HANDLER_REVISION = "2026-05-12-v6-sendJson-health";
 type VercelRequest = import("@vercel/node").VercelRequest;
 type VercelResponse = import("@vercel/node").VercelResponse;
 
-/** @see https://vercel.com/docs/functions/configuring-functions */
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "4mb",
-    },
-  },
-};
-
 function sendJson(res: VercelResponse, statusCode: number, payload: unknown): void {
   res.setHeader("X-Currently-GraphQL-Proxy", HANDLER_REVISION);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
