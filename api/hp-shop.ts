@@ -196,3 +196,5 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
 }
 
 module.exports = handler;
+
+export {};
