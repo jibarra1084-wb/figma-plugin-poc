@@ -1,20 +1,20 @@
 const STORE_DOMAIN = "harry-potter-unified.myshopify.com";
 const STOREFRONT_API_VERSION = "2024-10";
-const UPSTREAM = `https://${STORE_DOMAIN}/api/${STOREFRONT_API_VERSION}/graphql.json`;
+const HP_SHOP_UPSTREAM = `https://${STORE_DOMAIN}/api/${STOREFRONT_API_VERSION}/graphql.json`;
 
 /** Bumped whenever proxy behavior changes; visible on GET /api/hp-shop (verify production deploy). */
-const HANDLER_REVISION = "2026-06-03-v1-hp-shop-smoke";
+const HP_SHOP_HANDLER_REVISION = "2026-06-03-v2-hp-shop-smoke";
 
-type VercelRequest = import("@vercel/node").VercelRequest;
-type VercelResponse = import("@vercel/node").VercelResponse;
+type HpShopRequest = import("@vercel/node").VercelRequest;
+type HpShopResponse = import("@vercel/node").VercelResponse;
 
 function getStorefrontToken(): string | undefined {
   const token = process.env.SHOPIFY_HP_STOREFRONT_TOKEN;
   return typeof token === "string" && token.trim() ? token.trim() : undefined;
 }
 
-function sendJson(res: VercelResponse, statusCode: number, payload: unknown): void {
-  res.setHeader("X-Fetchly-HP-Shop-Proxy", HANDLER_REVISION);
+function sendJson(res: HpShopResponse, statusCode: number, payload: unknown): void {
+  res.setHeader("X-Fetchly-HP-Shop-Proxy", HP_SHOP_HANDLER_REVISION);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   let serialized: string;
   try {
@@ -26,7 +26,7 @@ function sendJson(res: VercelResponse, statusCode: number, payload: unknown): vo
       JSON.stringify({
         error: "ResponseSerializeFailed",
         message,
-        proxyRevision: HANDLER_REVISION,
+        proxyRevision: HP_SHOP_HANDLER_REVISION,
       })
     );
     return;
@@ -35,7 +35,7 @@ function sendJson(res: VercelResponse, statusCode: number, payload: unknown): vo
   res.end(serialized);
 }
 
-function normalizeBody(req: VercelRequest): Record<string, unknown> | null {
+function normalizeBody(req: HpShopRequest): Record<string, unknown> | null {
   let body = req.body as unknown;
   if (body == null) return {};
 
@@ -60,11 +60,11 @@ function normalizeBody(req: VercelRequest): Record<string, unknown> | null {
   return body as Record<string, unknown>;
 }
 
-type SafeJsonParseResult =
+type HpShopSafeJsonParseResult =
   | { ok: true; value: unknown }
   | { ok: false; snippet: string };
 
-function safeJsonParse(raw: string): SafeJsonParseResult {
+function safeJsonParse(raw: string): HpShopSafeJsonParseResult {
   const text = typeof raw === "string" ? raw : "";
   if (!text.trim()) return { ok: true, value: {} };
   try {
@@ -75,7 +75,22 @@ function safeJsonParse(raw: string): SafeJsonParseResult {
   }
 }
 
-async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+async function handler(req: HpShopRequest, res: HpShopResponse): Promise<void> {
+  // #region agent log
+  fetch("http://127.0.0.1:7734/ingest/11deb29f-6a3a-45de-b4d4-1ff01b0b1374", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "496dd1" },
+    body: JSON.stringify({
+      sessionId: "496dd1",
+      runId: "post-fix",
+      hypothesisId: "H1",
+      location: "api/hp-shop.ts:handler",
+      message: "handler invoked",
+      data: { method: req.method, revision: HP_SHOP_HANDLER_REVISION },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   try {
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -99,10 +114,10 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
       sendJson(res, 200, {
         ok: true,
         proxy: "hp-shop",
-        revision: HANDLER_REVISION,
+        revision: HP_SHOP_HANDLER_REVISION,
         store: STORE_DOMAIN,
         storefrontApiVersion: STOREFRONT_API_VERSION,
-        upstream: new URL(UPSTREAM).host,
+        upstream: new URL(HP_SHOP_UPSTREAM).host,
         tokenConfigured: Boolean(getStorefrontToken()),
         postHint: "POST JSON { query, variables? } to proxy Shopify Storefront GraphQL",
       });
@@ -119,7 +134,7 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
       sendJson(res, 500, {
         error: "MissingStorefrontToken",
         message: "Set SHOPIFY_HP_STOREFRONT_TOKEN in the Vercel project environment.",
-        proxyRevision: HANDLER_REVISION,
+        proxyRevision: HP_SHOP_HANDLER_REVISION,
       });
       return;
     }
@@ -144,7 +159,7 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
 
     let fetchRes: Response;
     try {
-      fetchRes = await fetch(UPSTREAM, {
+      fetchRes = await fetch(HP_SHOP_UPSTREAM, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -178,7 +193,7 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
       sendJson(res, statusOut, {
         error: "UpstreamNonJson",
         message: `${hint} HTTP ${fetchRes.status}${ct ? ` content-type=${ct}` : ""}.${snippet ? ` Preview: ${snippet}${raw.length > 200 ? "…" : ""}` : ""}`,
-        proxyRevision: HANDLER_REVISION,
+        proxyRevision: HP_SHOP_HANDLER_REVISION,
       });
       return;
     }
@@ -190,11 +205,9 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     sendJson(res, 500, {
       error: "Proxy error",
       message,
-      proxyRevision: HANDLER_REVISION,
+      proxyRevision: HP_SHOP_HANDLER_REVISION,
     });
   }
 }
 
 module.exports = handler;
-
-export {};
