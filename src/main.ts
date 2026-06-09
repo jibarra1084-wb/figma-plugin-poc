@@ -3,7 +3,7 @@
 /** Stable namespace for clientStorage keys — not the product title, so rebrands don't require key migrations. Bump version if stored payload shape changes. */
 const CLIENT_STORAGE_NS = "feature-map:v1";
 
-console.log("Currently build timestamp:", Date.now());
+console.log("Fetchly build timestamp:", Date.now());
 
 // Load UI (will be replaced with actual HTML by build script)
 figma.showUI(__html__, { width: 420, height: 650 });

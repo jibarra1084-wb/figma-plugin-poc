@@ -7,7 +7,7 @@ type VercelRequest = import("@vercel/node").VercelRequest;
 type VercelResponse = import("@vercel/node").VercelResponse;
 
 function sendJson(res: VercelResponse, statusCode: number, payload: unknown): void {
-  res.setHeader("X-Currently-GraphQL-Proxy", HANDLER_REVISION);
+  res.setHeader("X-Fetchly-GraphQL-Proxy", HANDLER_REVISION);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   let serialized: string;
   try {

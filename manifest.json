@@ -1,5 +1,5 @@
 {
-  "name": "Currently",
+  "name": "Fetchly",
   "id": "your-plugin-id",
   "api": "1.0.0",
   "main": "dist/main.es5.js",    
@@ -8,7 +8,7 @@
   "relaunchButtons": [
     {
       "command": "open",
-      "name": "Open Currently"
+      "name": "Open Fetchly"
     }
   ],
   "permissions": [],

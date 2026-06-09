@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import "./ui.css";
 
 /** Plugin title in the embedded UI (inlined into dist/ui.html). Run `npm run build` after changing; manifest `name` should match for consistency. */
-const PLUGIN_DISPLAY_NAME = "Currently";
+const PLUGIN_DISPLAY_NAME = "Fetchly";
 
 const BRANDS = ["tcm", "dc", "hbo"] as const;
 type SourceKey = "tcm" | "dc" | "hbo";
